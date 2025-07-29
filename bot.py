@@ -1,49 +1,35 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
+
 import os
 
-# --- Replace this with your Bot Token ---
-BOT_TOKEN = '8499142251:AAHh5pnQpHmnT-mtiU_eEHuvQ0e7v9nAdEg'
+BOT_TOKEN = os.getenv("8499142251:AAHh5pnQpHmnT-mtiU_eEHuvQ0e7v9nAdEg")
 
-# --- Mapping Chapters to Folders ---
-CHAPTER_IMAGES = {
-    'science_chapter1': 'images/chapter1',
-    'science_chapter2': 'images/chapter2'
+# Example chapter data
+chapter_images = {
+    'Chapter 1': ['images/ch1/1.jpg', 'images/ch1/2.jpg'],
+    'Chapter 2': ['images/ch2/1.jpg', 'images/ch2/2.jpg'],
 }
 
-# --- Start Command ---
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [InlineKeyboardButton("Science Chapter 1", callback_data='science_chapter1')],
-        [InlineKeyboardButton("Science Chapter 2", callback_data='science_chapter2')]
-    ]
+def start(update, context):
+    keyboard = [[InlineKeyboardButton(text=ch, callback_data=ch)] for ch in chapter_images]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Choose a chapter:", reply_markup=reply_markup)
+    update.message.reply_text("Choose a chapter:", reply_markup=reply_markup)
 
-# --- When a Chapter is Tapped ---
-async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def button_handler(update, context):
     query = update.callback_query
-    await query.answer()
+    query.answer()
     chapter = query.data
-    image_folder = CHAPTER_IMAGES.get(chapter)
+    for img_path in chapter_images.get(chapter, []):
+        context.bot.send_photo(chat_id=query.message.chat_id, photo=open(img_path, 'rb'))
 
-    if image_folder and os.path.exists(image_folder):
-        image_files = sorted(os.listdir(image_folder))
-        for file_name in image_files:
-            file_path = os.path.join(image_folder, file_name)
-            if file_name.lower().endswith(('.jpg', '.jpeg', '.png')):
-                with open(file_path, 'rb') as photo:
-                    await query.message.reply_photo(photo=photo)
-    else:
-        await query.message.reply_text("No images found for this chapter.")
-
-# --- Main Function ---
 def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(button_callback))
-    print("🤖 Bot is running...")
-    app.run_polling()
+    updater = Updater(token=BOT_TOKEN, use_context=True)
+    dp = updater.dispatcher
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CallbackQueryHandler(button_handler))
+    updater.start_polling()
+    updater.idle()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
